@@ -2,138 +2,129 @@
     name: check
     description: |
       Newly uploaded patchsets enter this pipeline to receive an
-      initial check status.      
+      initial +/-1 Verified vote.      
     manager: independent
+    precedence: low
+    require:
+      gerrit:
+        open: True
+        current-patchset: True
     trigger:
-      github:
-        # Run this pipeline on new/changed pull requests
-        - event: pull_request
-          action:
-            - opened
-            - changed
-            - reopened
-        # Run in response to a pull request comment "recheck"
-        - event: pull_request
-          action: comment
-          comment: (?i)^\s*recheck\s*$
-        # When using the checks API to report results, failed runs
-        # will have a "re-run" button which emits this event.
-        - event: check_run
-          action: rerequested
-          check: .*/check:.*
-    start:
-      github:
-        check: 'in_progress'
-        comment: false
-        # It is recommended to use the checks API for consistency with
-        # other common CI tools that integrate with Github.  Results
-        # will appear on the "checks" tab of PR and changes.  There is
-        # generally no need to have Zuul leave comments when using the
-        # checks API.
-        #
-        # The older status API appears inline with the PR and can be
-        # enabled by uncommenting the "status:" in the various
-        # sections below.  You should choose one or the other
-        # depending on project preferences.
-        #
-        #status: 'pending'
-        #comment: false
+      gerrit:
+        - event: patchset-created
+        - event: change-restored
+        - event: comment-added
+          comment: (?i)^(Patch Set [0-9]+:)?( [\w\\+-]*)*(\n\n)?\s*recheck
     success:
-      github:
-        check: 'success'
-        comment: false
-        #status: 'success'
+      gerrit:
+        # Note that gerrit keywords are case-sensitive.
+        Verified: 1
     failure:
-      github:
-        check: 'failure'
-        comment: false
-        #status: 'failure'
-    dequeue:
-      github:
-        check: cancelled
-        comment: false
+      gerrit:
+        Verified: -1
 
 - pipeline:
     name: gate
     description: |
-      Changes that have been approved by core developers are enqueued
+      Changes that have been approved by core reviewers are enqueued
       in order in this pipeline, and if they pass tests, will be
-      merged.      
+      merged. For documentation on how gating with Zuul works, please see
+      https://zuul-ci.org/docs/zuul/latest/gating.html      
     manager: dependent
-    precedence: high
+    precedence: normal
     supercedes: check
+    post-review: True
     require:
-      github:
-        review:
-          # Require an approval from user with write access (e.g. core-reviewer)
-          - permission: write
-            type: approved
-        # Require label
-        label: gate
+      gerrit:
         open: True
         current-patchset: True
+        approval:
+          - Workflow: 1
     trigger:
-      github:
-        - event: pull_request_review
-          action: submitted
-          state: approved
-        - event: pull_request
-          action: comment
-          comment: (?i)^\s*regate\s*$
-        - event: pull_request_review
-          action: dismissed
-          state: request_changes
-        - event: pull_request
-          action: status
-          status: ".*:success"
-        - event: check_run
-          action: rerequested
-          check: .*/gate:.*
-        - event: pull_request
-          action: labeled
-          label:
-            - gate
+      gerrit:
+        - event: comment-added
+          approval:
+            - Workflow: 1
     start:
-      github:
-        check: 'in_progress'
-        comment: false
-        #status: 'pending'
+      gerrit:
+        Verified: 0
     success:
-      github:
-        check: 'success'
-        comment: false
-        #status: 'success'
-        merge: true
+      gerrit:
+        Verified: 2
+        submit: true
     failure:
-      github:
-        check: 'failure'
-        #status: 'failure'
-        comment: false
-    dequeue:
-      github:
-        check: cancelled
-        comment: false
+      gerrit:
+        Verified: -2
     window-floor: 20
     window-increase-factor: 2
 
 - pipeline:
     name: post
-    post-review: true
-    description: This pipeline runs jobs that operate after each change is merged.
-    manager: independent
-    precedence: low
+    description: |
+      This pipeline runs jobs that operate after each change is
+      merged. Queue items are identified by the abbreviated hash (git
+      log --format=%h) of the merge commit.      
+    manager: supercedent
+    precedence: high
+    post-review: True
     trigger:
-      github:
-        - event: push
+      gerrit:
+        - event: ref-updated
           ref: ^refs/heads/.*$
 
 - pipeline:
-    name: tag
-    description: This pipeline runs jobs in response to any tag event.
+    name: promote
+    description: |
+      This pipeline runs jobs that operate after each change is merged
+      in order to promote artifacts generated in the gate
+      pipeline.      
+    manager: supercedent
+    precedence: high
+    post-review: True
+    trigger:
+      gerrit:
+        - event: change-merged
+    success:
+      gerrit: {}
+    failure:
+      gerrit: {}
+
+- pipeline:
+    name: deploy
+    description: |
+      This pipeline runs jobs that operate after each change is merged
+      in order to deploy to production.      
+    manager: serial
+    precedence: high
+    post-review: True
+    trigger:
+      gerrit:
+        - event: change-merged
+    success:
+      gerrit: {}
+    failure:
+      gerrit: {}
+
+- pipeline:
+    name: release
+    description: |
+      When a commit is tagged as a release, this pipeline runs jobs
+      that publish archives and documentation.      
     manager: independent
     precedence: high
     post-review: True
     trigger:
-      github:
-        - event: push
+      gerrit:
+        - event: ref-updated
+          ref: ^refs/tags/[0-9]+(\.[0-9]+)*$
+
+- pipeline:
+    name: tag
+    post-review: true
+    description: This pipeline runs jobs in response to any tag event.
+    manager: independent
+    precedence: high
+    trigger:
+      gerrit:
+        - event: ref-updated
           ref: ^refs/tags/.*$
