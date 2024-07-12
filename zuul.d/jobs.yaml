@@ -1,12 +1,3 @@
 - job:
-    name: base
-    parent: null
-    post-run:
-      - playbooks/post-logs.yaml
-    roles:
-      - zuul: zuul/zuul-jobs
-    timeout: 1800
-    nodeset:
-      nodes:
-        - name: pod-python
-          label: pod-python
+    name: github-base
+    parent: base

@@ -6,7 +6,7 @@
       jobs: []
 
 - project:
-    name: zuul-config
+    name: bagaswibowo25/zuul-config
     check:
       jobs:
         - noop

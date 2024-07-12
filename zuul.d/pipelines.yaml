@@ -115,3 +115,25 @@
         comment: false
     window-floor: 20
     window-increase-factor: 2
+
+- pipeline:
+    name: post
+    post-review: true
+    description: This pipeline runs jobs that operate after each change is merged.
+    manager: independent
+    precedence: low
+    trigger:
+      github:
+        - event: push
+          ref: ^refs/heads/.*$
+
+- pipeline:
+    name: tag
+    description: This pipeline runs jobs in response to any tag event.
+    manager: independent
+    precedence: high
+    post-review: True
+    trigger:
+      github:
+        - event: push
+          ref: ^refs/tags/.*$
