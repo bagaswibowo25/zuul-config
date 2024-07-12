@@ -51,20 +51,17 @@
     manager: dependent
     post-review: True
     require:
-      zuullab:
-        review:
-          # Require an approval from user with write access (e.g. core-reviewer)
-          - permission: write
-            type: approved
-        # Require label
-        label: gate
-        open: True
-        current-patchset: True
       gerrit:
         open: True
         current-patchset: True
         approval:
           - Workflow: 1
+      zuullab:
+        review:
+          - permission: write
+            type: approved
+        open: True
+        current-patchset: True
     trigger:
       zuullab:
         - event: pull_request_review
