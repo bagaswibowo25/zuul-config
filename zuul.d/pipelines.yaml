@@ -115,6 +115,3 @@
         comment: false
     window-floor: 20
     window-increase-factor: 2
-      github:
-        - event: push
-          ref: ^refs/tags/.*$
