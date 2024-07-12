@@ -12,10 +12,6 @@
             - opened
             - changed
             - reopened
-        # Run in response to a pull request comment "recheck"
-        - event: pull_request
-          action: comment
-          comment: (?i)^\s*recheck\s*$
         # When using the checks API to report results, failed runs
         # will have a "re-run" button which emits this event.
         - event: check_run
@@ -115,25 +111,3 @@
         comment: false
     window-floor: 20
     window-increase-factor: 2
-
-- pipeline:
-    name: post
-    post-review: true
-    description: This pipeline runs jobs that operate after each change is merged.
-    manager: independent
-    precedence: low
-    trigger:
-      github:
-        - event: push
-          ref: ^refs/heads/.*$
-
-- pipeline:
-    name: tag
-    description: This pipeline runs jobs in response to any tag event.
-    manager: independent
-    precedence: high
-    post-review: True
-    trigger:
-      github:
-        - event: push
-          ref: ^refs/tags/.*$
